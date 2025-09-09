@@ -11,24 +11,34 @@ npm install cloud-cuckoo
 ## Usage
 
 ```js
-import { Filter } from 'cloud-cuckoo'
-import { List } from 'cloud-cuckoo/bucket'
+import * as CuckooFilter from 'cloud-cuckoo'
+import { List } from 'cloud-cuckoo/bucket/memory'
 
-const size = 16
-const bucketSize = 4
-const fingerprintSize = 2
+const capacity = 1_000_000 // Maximum items the filter can store.
+const errorRate = 0.01     // 1% false positive rate.
 
-const cuckoo = new Filter({
+// Get optimal configuration for the filter, given the capacity and error rate.
+const {
   size,
   bucketSize,
-  fingerprintSize,
-  buckets: new List(size, bucketSize)
-})
+  fingerprintSize
+} = CuckooFilter.configure(capacity, errorRate)
+
+const buckets = List.create({ size, bucketSize })
+const filter = CuckooFilter.create(buckets, { fingerprintSize })
 
 const item = new Uint8Array([1, 2, 3])
-const added = await cuckoo.add(item)
-const exists = await cuckoo.contains(item)
-const removed = await cuckoo.remove(item)
+const added = await filter.add(item)
+const exists = await filter.has(item)
+const removed = await filter.delete(item)
 ```
 
-For real life usage, you'll want to implement `BucketList`, where the returned buckets implement `Bucket`. These should be backed by an async datastore.
+For real life usage, you'll want to implement a `BucketList`, where the returned buckets implement `Bucket`. These should be backed by an async datastore. Your implementation should be passed as the `buckets` parameter to `create(...)`.
+
+## Contributing
+
+Feel free to join in. All welcome. [Open an issue](https://github.com/alanshaw/cloud-cuckoo/issues)!
+
+## License
+
+Licensed under [MIT](https://github.com/alanshaw/cloud-cuckoo/blob/main/LICENSE.md)

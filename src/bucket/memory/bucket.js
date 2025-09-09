@@ -1,26 +1,45 @@
-import { randomInt } from './util.js'
+import { randomInt } from '../../util.js'
 
-/** @import * as API from './api.js' */
+/** @import * as API from '../../api.js' */
+
+/**
+ * Create an in-memory bucket implementation for testing/demos.
+ *
+ * @param {number} [size]
+ */
+export const create = size => {
+  size = size ?? 4
+  if (!Number.isInteger(size)) {
+    throw new TypeError('bucket size is not an integer')
+  }
+  const contents = Array(size).fill(null)
+  return from(contents)
+}
+
+/**
+ * Create an in-memory bucket implementation from an array of existing
+ * fingerprints.
+ *
+ * @param {Array<API.Fingerprint|null>} contents
+ */
+export const from = contents => new MemoryBucket(contents)
 
 /** @implements {API.Bucket} */
-export class Bucket {
+class MemoryBucket {
   /** @type {Array<API.Fingerprint|null>} */
   #contents
 
   /**
-   * @param {number} size
+   * @param {Array<API.Fingerprint|null>} contents
    */
-  constructor (size) {
-    if (!Number.isInteger(size)) {
-      throw TypeError('bucket size is not an integer')
-    }
-    this.#contents = Array(size).fill(null)
+  constructor (contents) {
+    this.#contents = contents
   }
 
   /**
    * @param {API.Fingerprint} fingerprint
    */
-  async contains (fingerprint) {
+  async has (fingerprint) {
     for (const f of this.#contents) {
       if (f && fingerprint.equals(f)) {
         return true
@@ -55,7 +74,7 @@ export class Bucket {
   /**
    * @param {API.Fingerprint} fingerprint
    */
-  async remove (fingerprint) {
+  async delete (fingerprint) {
     for (const [i, f] of this.#contents.entries()) {
       if (f && fingerprint.equals(f)) {
         this.#contents[i] = f
@@ -63,37 +82,5 @@ export class Bucket {
       }
     }
     return false
-  }
-}
-
-export class List {
-  /** @type {API.Bucket[]} */
-  #buckets
-  #size
-  #bucketSize
-
-  /**
-   * @param {number} size List size
-   * @param {number} bucketSize Bucket size
-   */
-  constructor (size, bucketSize) {
-    this.#buckets = []
-    this.#size = size
-    this.#bucketSize = bucketSize
-  }
-
-  /**
-   * @param {number} i
-   */
-  get (i) {
-    if (i >= this.#size) {
-      throw new RangeError('bucket index is greater than list size')
-    }
-    let b = this.#buckets[i]
-    if (!b) {
-      b = new Bucket(this.#bucketSize)
-      this.#buckets[i] = b
-    }
-    return b
   }
 }

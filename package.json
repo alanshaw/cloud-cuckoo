@@ -23,7 +23,7 @@
   "exports": {
     ".": "./dist/src/index.js",
     "./api": "./dist/src/api.js",
-    "./bucket": "./dist/src/bucket.js",
+    "./bucket/memory": "./dist/src/bucket/memory/index.js",
     "./fingerprint": "./dist/src/fingerprint.js",
     "./fnv32": "./dist/src/fnv32.js",
     "./util": "./dist/src/util.js"

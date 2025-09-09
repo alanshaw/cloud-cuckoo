@@ -1,45 +1,64 @@
-import { List } from './bucket.js'
-import { Fingerprint } from './fingerprint.js'
+import * as Fingerprint from './fingerprint.js'
 import { hash, randomInt } from './util.js'
 
 /** @import * as API from './api.js' */
 
-const maxCuckooCount = 500
+const maxKicks = 500
+
+/**
+ * Calcualte configuration parameters given the maximum number of items to store
+ * and the error rate.
+ *
+ * @param {number} capacity Maximum number of items to store.
+ * @param {number} errorRate Error rate (between 0 and 1).
+ * @param {number} [bucketSize] The number of fingerprints each bucket can store.
+ */
+export const configure = (capacity, errorRate, bucketSize) => {
+  bucketSize = bucketSize ?? 4
+  const size = Math.ceil(capacity / bucketSize / 0.955)
+  const fingerprintSize = computeFingerpintSize(bucketSize, errorRate)
+  return { size, bucketSize, fingerprintSize }
+}
+
+/**
+ * Compute the optimal fingerprint size in bytes for a given bucket size
+ * and a false positive rate.
+ *
+ * @param  {number} size Filter bucket size.
+ * @param  {number} rate Error rate, i.e. 'false positive' rate, targeted by the filter.
+ * @returns {number} The optimal fingerprint size in bytes.
+ */
+const computeFingerpintSize = (size, rate) => {
+  const f = Math.ceil(Math.log2(1 / rate) + Math.log2(2 * size))
+  return Math.ceil(f / 8)
+}
+
+/**
+ * @param {API.BucketList} buckets
+ * @param {number} [fingerprintSize]
+ */
+export const create = (buckets, fingerprintSize) =>
+  new Filter(buckets, fingerprintSize)
 
 /** @implements {API.Filter} */
-export class Filter {
-  #size
-  #bucketSize
+class Filter {
   #fingerprintSize
   /** @type {API.BucketList} */
   #buckets
 
   /**
-   * @param {object} [options]
-   * @param {number} [options.size]
-   * @param {number} [options.bucketSize]
-   * @param {number} [options.fingerprintSize]
-   * @param {API.BucketList} [options.buckets]
+   * @param {API.BucketList} buckets
+   * @param {number} [fingerprintSize]
    */
-  constructor (options) {
-    this.#bucketSize = options?.bucketSize ?? 4
-    this.#fingerprintSize = options?.fingerprintSize ?? 2
-    this.#size = options?.size ?? (1 << 18) / this.#bucketSize
-
-    if (!Number.isInteger(this.#size)) {
-      throw new TypeError('filter Size is not an integer')
-    }
+  constructor (buckets, fingerprintSize) {
+    this.#fingerprintSize = fingerprintSize ?? 2
     if (!Number.isInteger(this.#fingerprintSize)) {
       throw new TypeError('fingerprint size is not an integer')
     }
     if (this.#fingerprintSize > 4) {
       throw new RangeError('fingerprint size is larger than 4 bytes')
     }
-    if (!Number.isInteger(this.#bucketSize)) {
-      throw new TypeError('bucket size is not an integer')
-    }
-
-    this.#buckets = options?.buckets ?? new List(this.#size, this.#bucketSize)
+    this.#buckets = buckets
   }
 
   /**
@@ -49,10 +68,10 @@ export class Filter {
     if (!(input instanceof Uint8Array)) {
       throw new TypeError('input is not a Uint8Array')
     }
-    const fingerprint = new Fingerprint(input, this.#fingerprintSize)
-    const j = hash(input) % this.#size
-    const k = (j ^ hash(fingerprint.bytes())) % this.#size
     const buckets = this.#buckets
+    const fingerprint = Fingerprint.create(input, this.#fingerprintSize)
+    const j = hash(input) % buckets.size
+    const k = (j ^ hash(fingerprint.bytes())) % buckets.size
     if (await buckets.get(j).add(fingerprint) || await buckets.get(k).add(fingerprint)) {
       return true
     }
@@ -60,12 +79,12 @@ export class Filter {
     let i = rand[randomInt(0, rand.length - 1)]
     /** @type {API.Fingerprint|null} */
     let f = fingerprint
-    for (let n = 0; n < maxCuckooCount; n++) {
+    for (let n = 0; n < maxKicks; n++) {
       f = await buckets.get(i).swap(f)
       if (!f) {
         throw new Error('swap in full bucket did not return a fingerprint')
       }
-      i = (i ^ hash(f.bytes())) % this.#size
+      i = (i ^ hash(f.bytes())) % this.#buckets.size
       if (await buckets.get(i).add(f)) {
         return true
       }
@@ -76,38 +95,38 @@ export class Filter {
   /**
    * @param {Uint8Array} input
    */
-  async contains (input) {
+  async has (input) {
     if (!(input instanceof Uint8Array)) {
       throw new TypeError('input is not a Uint8Array')
     }
     const buckets = this.#buckets
-    const fingerprint = new Fingerprint(input, this.#fingerprintSize)
-    const j = hash(input) % this.#size
-    const inJ = await buckets.get(j).contains(fingerprint)
+    const fingerprint = Fingerprint.create(input, this.#fingerprintSize)
+    const j = hash(input) % buckets.size
+    const inJ = await buckets.get(j).has(fingerprint)
     if (inJ) {
       return inJ
     }
-    const k = (j ^ hash(fingerprint.bytes())) % this.#size
-    const inK = await buckets.get(k).contains(fingerprint)
+    const k = (j ^ hash(fingerprint.bytes())) % buckets.size
+    const inK = await buckets.get(k).has(fingerprint)
     return inK
   }
 
   /**
    * @param {Uint8Array} input
    */
-  async remove (input) {
+  async delete (input) {
     if (!(input instanceof Uint8Array)) {
       throw new TypeError('input is not a Uint8Array')
     }
     const buckets = this.#buckets
-    const fingerprint = new Fingerprint(input, this.#fingerprintSize)
-    const j = hash(input) % this.#size
-    const inJ = await buckets.get(j).remove(fingerprint)
+    const fingerprint = Fingerprint.create(input, this.#fingerprintSize)
+    const j = hash(input) % buckets.size
+    const inJ = await buckets.get(j).delete(fingerprint)
     if (inJ) {
       return inJ
     }
-    const k = (j ^ hash(fingerprint.bytes())) % this.#size
-    const inK = await buckets.get(k).remove(fingerprint)
+    const k = (j ^ hash(fingerprint.bytes())) % buckets.size
+    const inK = await buckets.get(k).delete(fingerprint)
     return inK
   }
 }
