@@ -65,9 +65,6 @@ class Filter {
    * @param {Uint8Array} input
    */
   async add (input) {
-    if (!(input instanceof Uint8Array)) {
-      throw new TypeError('input is not a Uint8Array')
-    }
     const buckets = this.#buckets
     const fingerprint = Fingerprint.create(input, this.#fingerprintSize)
     const j = hash(input) % buckets.size
@@ -96,9 +93,6 @@ class Filter {
    * @param {Uint8Array} input
    */
   async has (input) {
-    if (!(input instanceof Uint8Array)) {
-      throw new TypeError('input is not a Uint8Array')
-    }
     const buckets = this.#buckets
     const fingerprint = Fingerprint.create(input, this.#fingerprintSize)
     const j = hash(input) % buckets.size
@@ -115,9 +109,6 @@ class Filter {
    * @param {Uint8Array} input
    */
   async delete (input) {
-    if (!(input instanceof Uint8Array)) {
-      throw new TypeError('input is not a Uint8Array')
-    }
     const buckets = this.#buckets
     const fingerprint = Fingerprint.create(input, this.#fingerprintSize)
     const j = hash(input) % buckets.size
