@@ -1,0 +1,41 @@
+{
+  "name": "cloud-cuckoo",
+  "version": "0.0.0",
+  "description": "Cuckoo filter for the cloud",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test",
+    "lint": "standard"
+  },
+  "keywords": [
+    "cuckoo",
+    "bloom",
+    "filter"
+  ],
+  "author": "Alan Shaw",
+  "license": "MIT",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./api": "./dist/src/api.js",
+    "./bucket": "./dist/src/bucket.js",
+    "./fingerprint": "./dist/src/fingerprint.js",
+    "./fnv32": "./dist/src/fnv32.js",
+    "./util": "./dist/src/util.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "standard": "^17.1.2",
+    "typescript": "^5.9.2"
+  },
+  "standard": {
+    "ignore": [
+      "*.ts"
+    ]
+  }
+}
